@@ -8,16 +8,17 @@ I am not yet confident that the API this crate exposes is safe.
 
 ## Potential Proof
 
-Given a type `T`, this type outlives some livetime `'T`.
-Each type `T` may have zero or more lifetime parameters, `'0`, `'1`, ...
-Each lifetime parameter MUST (be definition) `'n: 'T` (where `'n` is `'0` etc)
-  In fact, `'T` is constructed by taking the largest lifetime that meets the above criteria
+- Given a type `T`, this type outlives some livetime `'T`.
+- Each type `T` may have zero or more lifetime parameters, `'0`, `'1`, ...
+- Each lifetime parameter MUST (be definition https://doc.rust-lang.org/reference/
+  trait-bounds.html#lifetime-bounds) be `'n: 'T` (where `'n` is `'0` etc)
+  - In fact, `'T` is constructed by taking the largest lifetime that meets the above criteria
 
-In general, it is safe to cast `'a` to `'b` if `'a: 'b`.
+- In general, it is safe to cast `'a` to `'b` if `'a: 'b`.
 
-Therefore, it is safe to cast an object of type `T` to `T<'a, 'a, ...>`, where `'a` is shorter than
-any of the lifetime parameters (and `'T`).
-  Ignoring type aliases, this can be done by simply forcing each parameter to be `'a`.
+- Therefore, it is safe to cast an object of type `T` to `T<'a, 'a, ...>`, where `'a` is shorter than
+  any of the lifetime parameters (and `'T`).
+  - Ignoring type aliases, this can be done by simply forcing each parameter to be `'a`.
 
 The following trait could facilitate this:
 ```rust

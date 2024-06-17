@@ -13,6 +13,9 @@ use std::{
 /// The associated type `LoweredType` be the same as `Self`, but shorten all
 /// lifetime parameters to `'a`. `'static` references that are required to be
 /// static for ALL subtypes of this type do not need to be downcasted.
+///
+/// Types with generic types can take advantage of the subtype's `NonStaticType`
+/// implementation to ensure they meet this safety requirement.
 pub unsafe trait NonStaticType<'a> {
     /// A version of this type where all lifetime references have been replaced with `'a`
     type LoweredType: 'a;
@@ -23,7 +26,7 @@ unsafe impl<'a> NonStaticType<'a> for &str {
 }
 
 pub fn non_static<'a, T: NonStaticType<'a> + 'a>(val: &'a T) -> &'a T::LoweredType {
-    // SAFETY: this is safe, since it's only shortening lifetimes
+    // SAFETY: this is safe, since it's only shortening lifetimes (See `NonStaticType`)
     unsafe { std::mem::transmute(val) }
 }
 
@@ -70,8 +73,8 @@ impl<T: ?Sized> NonStaticAny for T {
 pub fn downcast_non_static<'a, T: NonStaticType<'a> + NonStaticAny + 'a>(
     val: &'a dyn NonStaticAny,
 ) -> Option<&'a T::LoweredType> {
-    // SAFETY: this is safe, since it shortens lifetimes, and we have verified
-    // that is is otherwise the same type.
+    // SAFETY: this is safe, since it shortens lifetimes (See `NonStaticType`),
+    // and we have verified that is is otherwise the same type.
     if val.non_static_typeid() == non_static_type_id::<T>() {
         Some(unsafe { &*(val as *const dyn NonStaticAny).cast() })
     } else {
@@ -86,9 +89,15 @@ mod tests {
     struct WithLife<'a> {
         v: &'a str,
     }
+    unsafe impl<'a, 'b> NonStaticType<'a> for WithLife<'b> {
+        type LoweredType = WithLife<'a>;
+    }
 
-    /// Compile test, to demonstrate that a time is always safe to downcast lifetimes
-    fn downcast<'a, 'b>(val: &'a WithLife<'b>) -> &'a WithLife<'a>
+    /// Compile test, to demonstrate that a type is always safe to downcast lifetimes
+    /// This could be incorporated into a `derive` macro, to ensure the type is covariant
+    fn downcast<'a, 'b>(
+        val: &'a WithLife<'b>,
+    ) -> &'a <WithLife<'b> as NonStaticType<'a>>::LoweredType
     where
         WithLife<'b>: 'a,
     {
@@ -96,7 +105,5 @@ mod tests {
     }
 
     #[test]
-    fn it_works() {
-        
-    }
+    fn it_works() {}
 }
